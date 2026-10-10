@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Large data and model files
+data/
+*.hdf5
+checkpoints/
