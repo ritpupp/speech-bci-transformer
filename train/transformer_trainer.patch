@@ -1,0 +1,97 @@
+--- a/model_training/rnn_trainer.py
++++ b/model_training/rnn_trainer.py
+@@ -23,6 +23,7 @@
+ torch._dynamo.config.cache_size_limit = 64
+ 
+ from rnn_model import GRUDecoder
++from models.transformer import TransformerDecoder
+ 
+ class BrainToTextDecoder_Trainer:
+     """
+@@ -117,21 +118,39 @@
+             torch.manual_seed(self.args['seed'])
+ 
+         # Initialize the model 
+-        self.model = GRUDecoder(
+-            neural_dim = self.args['model']['n_input_features'],
+-            n_units = self.args['model']['n_units'],
+-            n_days = len(self.args['dataset']['sessions']),
+-            n_classes  = self.args['dataset']['n_classes'],
+-            rnn_dropout = self.args['model']['rnn_dropout'], 
+-            input_dropout = self.args['model']['input_network']['input_layer_dropout'], 
+-            n_layers = self.args['model']['n_layers'],
+-            patch_size = self.args['model']['patch_size'],
+-            patch_stride = self.args['model']['patch_stride'],
+-        )
++        self.model_type = self.args['model'].get('type', 'gru')
++        if self.model_type == 'transformer':
++            transformer_args = self.args['model']['transformer']
++            self.model = TransformerDecoder(
++                neural_dim = self.args['model']['n_input_features'],
++                n_days = len(self.args['dataset']['sessions']),
++                n_classes = self.args['dataset']['n_classes'],
++                d_model = transformer_args['d_model'],
++                n_layers = transformer_args['n_layers'],
++                n_heads = transformer_args['n_heads'],
++                dim_feedforward = transformer_args['dim_feedforward'],
++                dropout = transformer_args['dropout'],
++                input_dropout = self.args['model']['input_network']['input_layer_dropout'],
++                patch_size = self.args['model']['patch_size'],
++                patch_stride = self.args['model']['patch_stride'],
++            )
++        else:
++            self.model = GRUDecoder(
++                neural_dim = self.args['model']['n_input_features'],
++                n_units = self.args['model']['n_units'],
++                n_days = len(self.args['dataset']['sessions']),
++                n_classes  = self.args['dataset']['n_classes'],
++                rnn_dropout = self.args['model']['rnn_dropout'], 
++                input_dropout = self.args['model']['input_network']['input_layer_dropout'], 
++                n_layers = self.args['model']['n_layers'],
++                patch_size = self.args['model']['patch_size'],
++                patch_stride = self.args['model']['patch_stride'],
++            )
+ 
+         # Call torch.compile to speed up training
+-        self.logger.info("Using torch.compile")
+-        self.model = torch.compile(self.model)
++        if self.args.get('compile', True):
++            self.logger.info("Using torch.compile")
++            self.model = torch.compile(self.model)
+ 
+         self.logger.info(f"Initialized RNN decoding model")
+ 
+@@ -291,6 +310,15 @@
+ 
+         return optim 
+ 
++    def run_model(self, features, day_indicies, adjusted_lens):
++        '''
++        Call the model, passing valid patch counts to the transformer so attention ignores padding.
++        The GRU is called exactly as in the original trainer.
++        '''
++        if self.model_type == 'transformer':
++            return self.model(features, day_indicies, lengths = adjusted_lens)
++        return self.model(features, day_indicies)
++
+     def create_cosine_lr_scheduler(self, optim):
+         lr_max = self.args['lr_max']
+         lr_min = self.args['lr_min']
+@@ -532,7 +560,7 @@
+                 adjusted_lens = ((n_time_steps - self.args['model']['patch_size']) / self.args['model']['patch_stride'] + 1).to(torch.int32)
+ 
+                 # Get phoneme predictions 
+-                logits = self.model(features, day_indicies)
++                logits = self.run_model(features, day_indicies, adjusted_lens)
+ 
+                 # Calculate CTC Loss
+                 loss = self.ctc_loss(
+@@ -706,7 +734,7 @@
+ 
+                     adjusted_lens = ((n_time_steps - self.args['model']['patch_size']) / self.args['model']['patch_stride'] + 1).to(torch.int32)
+ 
+-                    logits = self.model(features, day_indicies)
++                    logits = self.run_model(features, day_indicies, adjusted_lens)
+     
+                     loss = self.ctc_loss(
+                         torch.permute(logits.log_softmax(2), [1, 0, 2]),
