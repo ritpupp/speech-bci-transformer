@@ -20,3 +20,20 @@ Every experiment gets a row in this table, and its prediction is written down be
 ## Takeaways
 
 - Reached 13.43% val PER with about 5% of the official run’s training samples (384k vs 7.68M), within 3.3 points of the official 10.1%.
+
+## Models compared
+
+| Part | Transformer | GRU (official) |
+|------|------------:|---------------:|
+| Day layers (shared design) | 11,819,520 | 11,819,520 |
+| Projection | 2,752,896 | none |
+| Encoder / GRU layers | 7,098,624 | 32,463,360 |
+| Output | 15,785 | 31,529 |
+| Initial hidden state | none | 768 |
+| Total | 21,686,825 | 44,315,177 |
+
+Transformer: d_model 384, 4 layers, 6 heads, feed-forward 1536. The transformer is about 49% of the GRU’s size; excluding the shared day layers, about 9.9M vs 32.5M.
+
+## Known differences between the models
+
+Weight decay (0.001) in the official optimizer is skipped only for parameters named gru.bias and out.bias, and the day layers get their own settings. After renaming the transformer’s output layer to out, its output bias is treated like the GRU’s. The encoder’s biases and LayerNorm weights are still decayed, which the GRU’s biases are not. Expected effect is small at this weight-decay value.
