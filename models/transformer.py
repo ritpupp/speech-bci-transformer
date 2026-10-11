@@ -102,8 +102,8 @@ class TransformerDecoder(nn.Module):
         )
 
         # Prediction head. Weight init to xavier, as in GRUDecoder
-        self.output = nn.Linear(d_model, n_classes)
-        nn.init.xavier_uniform_(self.output.weight)
+        self.out = nn.Linear(d_model, n_classes)
+        nn.init.xavier_uniform_(self.out.weight)
 
     def forward(self, x, day_idx, lengths = None):
         '''
@@ -144,16 +144,18 @@ class TransformerDecoder(nn.Module):
         padding_mask = None
         if lengths is not None:
             lengths = torch.as_tensor(lengths, device=x.device)
-            assert (lengths <= num_patches).all(), \
-                f"lengths {lengths.tolist()} exceed num_patches {num_patches}"
-            assert (lengths >= 1).all(), \
-                f"every trial needs at least one valid patch, got lengths {lengths.tolist()}"
+            # Skipped under torch.compile: checking tensor values there forces a graph break and GPU sync
+            if not torch.compiler.is_compiling():
+                assert (lengths <= num_patches).all(), \
+                    f"lengths {lengths.tolist()} exceed num_patches {num_patches}"
+                assert (lengths >= 1).all(), \
+                    f"every trial needs at least one valid patch, got lengths {lengths.tolist()}"
             # True = padding, which attention ignores
             padding_mask = torch.arange(num_patches, device=x.device).unsqueeze(0) >= lengths.unsqueeze(1)
 
         x = self.encoder(x, src_key_padding_mask=padding_mask)
 
-        return self.output(x)
+        return self.out(x)
 
 
 def count_parameters(model):
@@ -164,7 +166,7 @@ def count_parameters(model):
         "day layers": ("day_weights", "day_biases"),
         "input projection": ("input_projection",),
         "transformer encoder": ("encoder",),
-        "output layer": ("output",),
+        "output layer": ("out",),
     }
     counts = {name: 0 for name in groups}
     for param_name, param in model.named_parameters():

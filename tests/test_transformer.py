@@ -21,7 +21,7 @@ def make_eval_model():
         for bias in model.day_biases:
             nn.init.normal_(bias)
         nn.init.normal_(model.input_projection.bias)
-        nn.init.normal_(model.output.bias)
+        nn.init.normal_(model.out.bias)
     model.eval()
     return model
 
@@ -67,3 +67,14 @@ def test_lengths_longer_than_num_patches_fails():
     real, _ = make_real_and_padded()
     with pytest.raises(AssertionError):
         model(real, DAY_IDX, lengths=[N_REAL_PATCHES + 1, N_REAL_PATCHES])
+
+
+def test_wrong_lengths_raise_in_eager_mode():
+    # The asserts are skipped only under torch.compile; a plain (eager) model must still check both bounds.
+    model = make_eval_model()
+    real, _ = make_real_and_padded()
+    assert not torch.compiler.is_compiling()
+    with pytest.raises(AssertionError, match="exceed num_patches"):
+        model(real, DAY_IDX, lengths=[N_REAL_PATCHES, N_REAL_PATCHES + 1])
+    with pytest.raises(AssertionError, match="at least one valid patch"):
+        model(real, DAY_IDX, lengths=[0, N_REAL_PATCHES])
