@@ -4,7 +4,7 @@ Every experiment gets a row in this table, and its prediction is written down be
 
 | Run | Model | What changed | Val PER | Val WER | Notes |
 |-----|-------|--------------|---------|---------|-------|
-| Run 1 | Pretrained GRU (official checkpoint) | none | XX.XX% | — | greedy CTC decoding, float32 inference on Kaggle T4, 1,426 validation trials |
+| Run 1 | Pretrained GRU (official checkpoint) | none | 10.19% | — | greedy CTC decoding, float32 inference on Kaggle T4, 1,426 validation trials |
 | 2 | GRU, my training (official settings) | 600 batches, batch size 32 (speed test) | XX.XX% | — | float32, Kaggle T4, 1.41 s/batch including compile and validation; val PER fell from 121.6% to XX.XX% over 3 checks |
 | 3 | GRU, my training (official settings) | 12,000 batches, batch size 32 | 13.43% | — | best val checkpoint (final check was still improving); Kaggle T4, float32, 3h26m, 1.03 s/batch; official 120k-batch, batch-64 run reports 10.1% |
 | 4 | Transformer (mine) | 4 layers, d_model 384, 6 heads, FF 1536; encoder lr 1e-3; torch.compile off; 12,000 batches, batch size 32 | 52.61% | — | Best checkpoint at batch 10,800 (final 52.63%), flattening as the cosine schedule ended. Train loss ended around 35-47 vs about 3-5 for the GRU, so it underfit. No prediction was recorded before this run. Differs from run 3 in learning rate (1e-3 vs 5e-3), compile off, and weight decay on encoder biases and LayerNorm. T4, float32, 87 min, 0.44 s/batch. |
