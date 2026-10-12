@@ -6,6 +6,7 @@ Comparing a recurrent (GRU) decoder and a custom transformer decoder for an intr
 <img width="2092" height="752" alt="image" src="https://github.com/user-attachments/assets/1157d0f6-c0aa-42b9-a4b2-3a667a942c0c" />
 
 
+
 Neural features (512 per 20 ms bin) are split into overlapping patches of 14 bins with stride 4, passed through the model, and trained with CTC loss to predict a phoneme sequence.
 
 
